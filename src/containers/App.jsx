@@ -1,6 +1,4 @@
-/* global cozy */
 import React, { Component } from 'react'
-import PropTypes from 'react-proptypes'
 import { Route, Switch, Redirect, withRouter } from 'react-router-dom'
 import isObjectLike from 'lodash/isObjectLike'
 import isArray from 'lodash/isArray'
@@ -23,12 +21,19 @@ import IntentRedirect from 'components/IntentRedirect'
 import StoreRedirection from 'components/StoreRedirection'
 import ConnectionsQueue from 'ducks/connections/components/queue/index'
 import DemoTimeline from 'assets/images/timeline.png'
+import { withClient } from 'cozy-client'
 
 const IDLE = 'idle'
 const FETCHING_CONTEXT = 'FETCHING_CONTEXT'
 
 window.flag = window.flag || flag
 window.minilog = minilog
+
+const isCollectionLoading = collection => {
+  return (
+    collection.fetchStatus === 'pending' || collection.fetchStatus === 'loading'
+  )
+}
 
 // TODO add this to cozy-flags ?
 export const toFlagNames = (flagName, prefix = '') => {
@@ -41,15 +46,20 @@ export const toFlagNames = (flagName, prefix = '') => {
     )
 }
 
+const fetchFeatureFlags = async client => {
+  const context = await client.stackClient.fetchJSON('GET', '/settings/context')
+
+  if (context && context.attributes && context.attributes.features) {
+    return toFlagNames(context.attributes.features)
+  } else {
+    return null
+  }
+}
+
 class App extends Component {
   state = {
     error: null,
     status: IDLE
-  }
-
-  constructor(props, context) {
-    super(props, context)
-    this.store = context.store
   }
 
   componentDidMount() {
@@ -57,33 +67,27 @@ class App extends Component {
   }
 
   async fetchContext() {
-    this.setState({
-      status: FETCHING_CONTEXT
-    })
-
-    const context = await cozy.client
-      .fetchJSON('GET', '/settings/context')
-      .catch(error => {
-        this.setState({
-          error,
-          status: IDLE
-        })
+    try {
+      this.setState({
+        status: FETCHING_CONTEXT
       })
-
-    if (context && context.attributes && context.attributes.features) {
-      const flags = toFlagNames(context.attributes.features)
-      enableFlags(flags)
+      const flags = await fetchFeatureFlags(this.props.client)
+      if (flags) {
+        enableFlags(flags)
+      }
+    } catch (error) {
+      this.setState({ error })
+    } finally {
+      this.setState({
+        status: IDLE
+      })
     }
-
-    this.setState({
-      status: IDLE
-    })
   }
 
   render() {
     const { accounts, konnectors, triggers } = this.props
-    const isFetching = [accounts, konnectors, triggers].find(collection =>
-      ['pending', 'loading'].includes(collection.fetchStatus)
+    const isFetching = [accounts, konnectors, triggers].some(col =>
+      isCollectionLoading(col)
     )
 
     const hasError = [accounts, konnectors, triggers].find(
@@ -148,12 +152,8 @@ class App extends Component {
   }
 }
 
-App.contextTypes = {
-  store: PropTypes.object
-}
-
 /*
 withRouter is necessary here to deal with redux
 https://github.com/ReactTraining/react-router/blob/master/packages/react-router/docs/guides/blocked-updates.md
 */
-export default withRouter(appEntryPoint(App))
+export default withClient(withRouter(appEntryPoint(App)))

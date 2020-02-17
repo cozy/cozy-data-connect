@@ -1,8 +1,6 @@
 import React, { Component } from 'react'
-import { cozyConnect } from 'redux-cozy-client'
 import { connect } from 'react-redux'
 import { NavLink, withRouter } from 'react-router-dom'
-import PropTypes from 'prop-types'
 
 import { translate } from 'cozy-ui/react/I18n'
 import Alerter from 'cozy-ui/react/Alerter'
@@ -28,9 +26,8 @@ import {
 import styles from 'styles/connectionManagement.styl'
 
 class ConnectionManagement extends Component {
-  constructor(props, context) {
-    super(props, context)
-    this.store = context.store
+  constructor(props) {
+    super(props)
     const { konnector } = props
 
     this.state = {
@@ -38,7 +35,6 @@ class ConnectionManagement extends Component {
     }
 
     if (konnector) {
-      this.store.fetchUrls()
       if (this.props.isCreating) {
         // eslint-disable-next-line no-console
         console.warn(
@@ -167,12 +163,6 @@ class ConnectionManagement extends Component {
   }
 }
 
-ConnectionManagement.contextTypes = {
-  store: PropTypes.object
-}
-
-const mapActionsToProps = () => ({})
-
 const mapStateToProps = (state, ownProps) => {
   // infos from route parameters
   const { konnectorSlug } = ownProps.match && ownProps.match.params
@@ -202,8 +192,4 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
 export default connect(
   mapStateToProps,
   mapDispatchToProps
-)(
-  cozyConnect(() => {}, mapActionsToProps)(
-    withRouter(translate()(ConnectionManagement))
-  )
-)
+)(withRouter(translate()(ConnectionManagement)))

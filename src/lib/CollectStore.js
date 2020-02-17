@@ -23,7 +23,7 @@ const normalize = (dbObject, doctype) => {
 }
 
 export default class CollectStore {
-  constructor(context, client, options = {}) {
+  constructor(client, options = {}) {
     this.client = client
     this.listener = null
     this.options = options
@@ -128,28 +128,5 @@ export default class CollectStore {
 
   createIntentService(intent, window) {
     return cozy.client.intents.createService(intent, window)
-  }
-
-  // Get the drive and banks application url using the list of application
-  fetchUrls() {
-    return cozy.client
-      .fetchJSON('GET', '/apps/')
-      .then(body => {
-        body.forEach(item => {
-          if (!item.attributes || !item.attributes.slug || !item.links) return
-          switch (item.attributes.slug) {
-            case 'banks':
-              this.banksUrl = `${item.links.related}`
-              break
-            default:
-              break
-          }
-        })
-      })
-      .catch(err => {
-        // eslint-disable-next-line no-console
-        console.warn(err.message)
-        return false
-      })
   }
 }

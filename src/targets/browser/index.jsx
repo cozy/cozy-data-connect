@@ -1,92 +1,56 @@
-/* global __DEVELOPMENT__ */
 import React from 'react'
 import { render } from 'react-dom'
-import { CozyClient, CozyProvider } from 'redux-cozy-client'
+import { Provider } from 'react-redux'
 import 'url-search-params-polyfill'
-import MostRecentCozyClient, {
-  CozyProvider as MostRecentCozyClientProvider
-} from 'cozy-client'
-import { Application } from 'cozy-doctypes'
-import { handleOAuthResponse } from 'cozy-harvest-lib'
-import I18n from 'cozy-ui/react/I18n'
 
-import collectConfig from 'config/collect'
-import PiwikHashRouter from 'lib/PiwikHashRouter'
-import configureStore from 'store/configureStore'
-
+import CozyClient, { CozyProvider } from 'cozy-client'
+import { I18n } from 'cozy-ui/react/I18n'
 import 'cozy-ui/transpiled/react/stylesheet.css'
 import 'cozy-ui/dist/cozy-ui.min.css'
+
+import schema from 'schema'
+import configureStore from 'store/configureStore'
+
+import { handleOAuthResponse } from 'cozy-harvest-lib'
+import collectConfig from 'config/collect'
+import PiwikHashRouter from 'lib/PiwikHashRouter'
+
 import 'intro.js-fix-cozy/minified/introjs.min.css'
 import 'styles/index.styl'
 
 const lang = document.documentElement.getAttribute('lang') || 'en'
-const context = window.context || 'cozy'
-
-const ACCOUNTS_DOCTYPE = 'io.cozy.accounts'
 
 document.addEventListener('DOMContentLoaded', () => {
   if (handleOAuthResponse()) return
 
   const root = document.querySelector('[role=application]')
-  const data = root.dataset
+  const appData = root.dataset
 
-  const legacyClient = new CozyClient({
-    cozyURL: `//${data.cozyDomain}`,
-    token: data.cozyToken
+  const cozyClient = new CozyClient({
+    uri: `${window.location.protocol}//${appData.cozyDomain}`,
+    schema,
+    token: appData.cozyToken
   })
 
-  // New improvements must be done with CozyClient
-  const cozyClient = new MostRecentCozyClient({
-    uri: `${window.location.protocol}//${data.cozyDomain}`,
-    schema: {
-      app: Application.schema,
-      accounts: {
-        doctype: ACCOUNTS_DOCTYPE,
-        attributes: {},
-        relationships: {
-          master: {
-            type: 'has-one',
-            doctype: ACCOUNTS_DOCTYPE
-          }
-        }
-      },
-      permissions: {
-        doctype: 'io.cozy.permissions',
-        attributes: {}
-      },
-      triggers: {
-        doctype: 'io.cozy.triggers'
-      },
-      jobs: {
-        doctype: 'io.cozy.jobs'
-      }
-    },
-    token: data.cozyToken
-  })
-
-  // store
-  const store = configureStore(legacyClient, cozyClient, context, {
+  const store = configureStore(cozyClient, {
     lang,
     ...collectConfig
   })
 
+  cozyClient.setStore(store)
+
   const dictRequire = lang => require(`locales/${lang}`)
   const App = require('containers/App').default
   render(
-    <MostRecentCozyClientProvider client={cozyClient}>
-      <CozyProvider
-        store={store}
-        client={cozyClient}
-        domain={data.cozyDomain}
-        secure={!__DEVELOPMENT__}
-      >
-        <I18n lang={lang} dictRequire={dictRequire} context={context}>
+    <CozyProvider client={cozyClient}>
+      <Provider store={store}>
+        <I18n lang={lang} dictRequire={dictRequire}>
           <PiwikHashRouter>
             <App {...collectConfig} />
           </PiwikHashRouter>
         </I18n>
-      </CozyProvider>
-    </MostRecentCozyClientProvider>,
+      </Provider>
+    </CozyProvider>,
     document.querySelector('[role=application]')
   )
 })
